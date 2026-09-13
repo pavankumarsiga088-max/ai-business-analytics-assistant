@@ -1,0 +1,101 @@
+order_id,order_date,customer_name,product,category,region,quantity,unit_price,revenue,payment_method
+ORD-1001,2024-01-02,Manish Tiwari,Ergonomic Office Chair,Furniture,North,3,8500.0,25500.0,Credit Card
+ORD-1002,2024-01-04,Sneha Nair,Mechanical Keyboard,Electronics,North,5,3200.0,16000.0,UPI
+ORD-1003,2024-01-06,Varun Kapoor,Cotton Double Bedspread,Home & Kitchen,North,1,1899.0,1899.0,UPI
+ORD-1004,2024-01-08,Rajesh Kumar,Ceramic Coffee Mug Set,Home & Kitchen,Central,5,799.0,3995.0,UPI
+ORD-1005,2024-01-10,Ritu Sen,Ceramic Coffee Mug Set,Home & Kitchen,Central,4,799.0,3196.0,Credit Card
+ORD-1006,2024-01-11,Karthik Raman,Desk Bookshelf Organizer,Furniture,East,1,1499.0,1499.0,Credit Card
+ORD-1007,2024-01-13,Siddharth Roy,Cotton Double Bedspread,Home & Kitchen,East,3,1899.0,5697.0,Credit Card
+ORD-1008,2024-01-15,Rajesh Kumar,Smart Fitness Band,Electronics,North,1,2499.0,2499.0,Net Banking
+ORD-1009,2024-01-17,Ananya Iyer,Smart Fitness Band,Electronics,East,5,2499.0,12495.0,Debit Card
+ORD-1010,2024-01-19,Priya Patel,Adjustable Laptop Stand,Furniture,Central,1,1299.0,1299.0,Net Banking
+ORD-1011,2024-01-20,Rohan Verma,Wireless Gaming Mouse,Electronics,East,5,1699.0,8495.0,Debit Card
+ORD-1012,2024-01-22,Varun Kapoor,Ceramic Coffee Mug Set,Home & Kitchen,North,1,799.0,799.0,Credit Card
+ORD-1013,2024-01-24,Nandini Mukherjee,Stainless Steel Water Bottle,Home & Kitchen,North,2,549.0,1098.0,UPI
+ORD-1014,2024-01-26,Amit Shah,Stainless Steel Water Bottle,Home & Kitchen,West,3,549.0,1647.0,Credit Card
+ORD-1015,2024-01-28,Kavita Reddy,Smart Fitness Band,Electronics,South,3,2499.0,7497.0,UPI
+ORD-1016,2024-01-29,Sunita Rao,Mechanical Keyboard,Electronics,Central,2,3200.0,6400.0,Credit Card
+ORD-1017,2024-01-31,Karthik Raman,Cotton Double Bedspread,Home & Kitchen,East,5,1899.0,9495.0,Credit Card
+ORD-1018,2024-02-02,Deepika Padukone,Smart Fitness Band,Electronics,North,2,2499.0,4998.0,UPI
+ORD-1019,2024-02-04,Rahul Deshmukh,Cotton Double Bedspread,Home & Kitchen,East,1,1899.0,1899.0,Credit Card
+ORD-1020,2024-02-06,Varun Kapoor,Smart Fitness Band,Electronics,South,4,2499.0,9996.0,Net Banking
+ORD-1021,2024-02-07,Manish Tiwari,Adjustable Laptop Stand,Furniture,South,3,1299.0,3897.0,Credit Card
+ORD-1022,2024-02-09,Sneha Nair,Wireless Gaming Mouse,Electronics,Central,3,1699.0,5097.0,Cash on Delivery
+ORD-1023,2024-02-11,Meera Sundaram,Desk Bookshelf Organizer,Furniture,West,3,1499.0,4497.0,Credit Card
+ORD-1024,2024-02-13,Vikram Malhotra,Wireless Gaming Mouse,Electronics,West,1,1699.0,1699.0,UPI
+ORD-1025,2024-02-15,Ananya Iyer,Mechanical Keyboard,Electronics,South,4,3200.0,12800.0,Cash on Delivery
+ORD-1026,2024-02-16,Rohan Verma,Cotton Double Bedspread,Home & Kitchen,West,5,1899.0,9495.0,Net Banking
+ORD-1027,2024-02-18,Suresh Menon,Stainless Steel Water Bottle,Home & Kitchen,Central,1,549.0,549.0,UPI
+ORD-1028,2024-02-20,Deepika Padukone,Wireless Gaming Mouse,Electronics,East,3,1699.0,5097.0,UPI
+ORD-1029,2024-02-22,Pooja Singh,Cotton Double Bedspread,Home & Kitchen,South,4,1899.0,7596.0,UPI
+ORD-1030,2024-02-24,Ishaan Bhat,Stainless Steel Water Bottle,Home & Kitchen,Central,2,549.0,1098.0,Cash on Delivery
+ORD-1031,2024-02-25,Ananya Iyer,Stainless Steel Water Bottle,Home & Kitchen,Central,5,549.0,2745.0,Credit Card
+ORD-1032,2024-02-27,Vikram Malhotra,Smart Fitness Band,Electronics,South,5,2499.0,12495.0,Cash on Delivery
+ORD-1033,2024-02-29,Aarav Sharma,Desk Bookshelf Organizer,Furniture,East,4,1499.0,5996.0,UPI
+ORD-1034,2024-03-02,Ananya Iyer,Smart Fitness Band,Electronics,East,2,2499.0,4998.0,UPI
+ORD-1035,2024-03-04,Sneha Nair,Desk Bookshelf Organizer,Furniture,North,1,1499.0,1499.0,Net Banking
+ORD-1036,2024-03-05,Rohan Verma,Wireless Gaming Mouse,Electronics,South,2,1699.0,3398.0,Net Banking
+ORD-1037,2024-03-07,Ritu Sen,Mechanical Keyboard,Electronics,East,5,3200.0,16000.0,Cash on Delivery
+ORD-1038,2024-03-09,Meera Sundaram,Ceramic Coffee Mug Set,Home & Kitchen,Central,2,799.0,1598.0,Debit Card
+ORD-1039,2024-03-11,Amit Shah,Smart Fitness Band,Electronics,West,5,2499.0,12495.0,Net Banking
+ORD-1040,2024-03-13,Ananya Iyer,Ceramic Coffee Mug Set,Home & Kitchen,South,1,799.0,799.0,Debit Card
+ORD-1041,2024-03-14,Aarav Sharma,Desk Bookshelf Organizer,Furniture,Central,2,1499.0,2998.0,Cash on Delivery
+ORD-1042,2024-03-16,Sneha Nair,Noise Cancelling Headphones,Electronics,North,1,4999.0,4999.0,Credit Card
+ORD-1043,2024-03-18,Rohan Verma,Noise Cancelling Headphones,Electronics,East,1,4999.0,4999.0,Cash on Delivery
+ORD-1044,2024-03-20,Sneha Nair,Stainless Steel Water Bottle,Home & Kitchen,West,2,549.0,1098.0,Cash on Delivery
+ORD-1045,2024-03-22,Vikram Malhotra,Desk Bookshelf Organizer,Furniture,Central,4,1499.0,5996.0,Credit Card
+ORD-1046,2024-03-23,Divya Chawla,Cotton Double Bedspread,Home & Kitchen,South,1,1899.0,1899.0,UPI
+ORD-1047,2024-03-25,Deepika Padukone,Cotton Double Bedspread,Home & Kitchen,East,4,1899.0,7596.0,Net Banking
+ORD-1048,2024-03-27,Karthik Raman,Noise Cancelling Headphones,Electronics,North,1,4999.0,4999.0,Net Banking
+ORD-1049,2024-03-29,Ishaan Bhat,Smart Fitness Band,Electronics,North,2,2499.0,4998.0,Credit Card
+ORD-1050,2024-03-31,Rajesh Kumar,Wireless Gaming Mouse,Electronics,West,2,1699.0,3398.0,Net Banking
+ORD-1051,2024-04-01,Neha Gupta,Stainless Steel Water Bottle,Home & Kitchen,West,2,549.0,1098.0,UPI
+ORD-1052,2024-04-03,Karthik Raman,Wireless Gaming Mouse,Electronics,North,1,1699.0,1699.0,Cash on Delivery
+ORD-1053,2024-04-05,Aarav Sharma,Ergonomic Office Chair,Furniture,South,2,8500.0,17000.0,Net Banking
+ORD-1054,2024-04-07,Divya Chawla,Adjustable Laptop Stand,Furniture,South,4,1299.0,5196.0,UPI
+ORD-1055,2024-04-09,Neha Gupta,Cotton Double Bedspread,Home & Kitchen,North,4,1899.0,7596.0,Debit Card
+ORD-1056,2024-04-10,Karthik Raman,Stainless Steel Water Bottle,Home & Kitchen,West,5,549.0,2745.0,Net Banking
+ORD-1057,2024-04-12,Vikram Malhotra,Ceramic Coffee Mug Set,Home & Kitchen,East,2,799.0,1598.0,UPI
+ORD-1058,2024-04-14,Varun Kapoor,Wireless Gaming Mouse,Electronics,North,3,1699.0,5097.0,UPI
+ORD-1059,2024-04-16,Priya Patel,Desk Bookshelf Organizer,Furniture,West,5,1499.0,7495.0,Cash on Delivery
+ORD-1060,2024-04-18,Neha Gupta,Noise Cancelling Headphones,Electronics,Central,1,4999.0,4999.0,Credit Card
+ORD-1061,2024-04-19,Rohan Verma,Desk Bookshelf Organizer,Furniture,North,2,1499.0,2998.0,Net Banking
+ORD-1062,2024-04-21,Ananya Iyer,Desk Bookshelf Organizer,Furniture,South,5,1499.0,7495.0,Cash on Delivery
+ORD-1063,2024-04-23,Priya Patel,Desk Bookshelf Organizer,Furniture,North,4,1499.0,5996.0,Cash on Delivery
+ORD-1064,2024-04-25,Varun Kapoor,Wireless Gaming Mouse,Electronics,East,3,1699.0,5097.0,Credit Card
+ORD-1065,2024-04-27,Deepika Padukone,Smart Fitness Band,Electronics,South,3,2499.0,7497.0,Net Banking
+ORD-1066,2024-04-28,Vikram Malhotra,Stainless Steel Water Bottle,Home & Kitchen,West,3,549.0,1647.0,UPI
+ORD-1067,2024-04-30,Aarav Sharma,Adjustable Laptop Stand,Furniture,Central,5,1299.0,6495.0,UPI
+ORD-1068,2024-05-02,Rohan Verma,Wireless Gaming Mouse,Electronics,South,5,1699.0,8495.0,Debit Card
+ORD-1069,2024-05-04,Vikram Malhotra,Smart Fitness Band,Electronics,North,2,2499.0,4998.0,Debit Card
+ORD-1070,2024-05-06,Pooja Singh,Mechanical Keyboard,Electronics,West,5,3200.0,16000.0,Debit Card
+ORD-1071,2024-05-07,Sunita Rao,Wireless Gaming Mouse,Electronics,North,5,1699.0,8495.0,Debit Card
+ORD-1072,2024-05-09,Deepika Padukone,Ergonomic Office Chair,Furniture,South,3,8500.0,25500.0,UPI
+ORD-1073,2024-05-11,Ananya Iyer,Wireless Gaming Mouse,Electronics,South,3,1699.0,5097.0,Debit Card
+ORD-1074,2024-05-13,Sunita Rao,Ceramic Coffee Mug Set,Home & Kitchen,East,2,799.0,1598.0,Debit Card
+ORD-1075,2024-05-15,Suresh Menon,Adjustable Laptop Stand,Furniture,East,1,1299.0,1299.0,UPI
+ORD-1076,2024-05-16,Manish Tiwari,Cotton Double Bedspread,Home & Kitchen,East,1,1899.0,1899.0,UPI
+ORD-1077,2024-05-18,Rahul Deshmukh,Mechanical Keyboard,Electronics,East,2,3200.0,6400.0,Net Banking
+ORD-1078,2024-05-20,Ritu Sen,Cotton Double Bedspread,Home & Kitchen,Central,1,1899.0,1899.0,UPI
+ORD-1079,2024-05-22,Rohan Verma,Mechanical Keyboard,Electronics,Central,1,3200.0,3200.0,Debit Card
+ORD-1080,2024-05-24,Varun Kapoor,Wireless Gaming Mouse,Electronics,South,4,1699.0,6796.0,Credit Card
+ORD-1081,2024-05-25,Priya Patel,Stainless Steel Water Bottle,Home & Kitchen,East,1,549.0,549.0,Debit Card
+ORD-1082,2024-05-27,Rajesh Kumar,Ceramic Coffee Mug Set,Home & Kitchen,North,3,799.0,2397.0,Cash on Delivery
+ORD-1083,2024-05-29,Meera Sundaram,Desk Bookshelf Organizer,Furniture,South,2,1499.0,2998.0,Credit Card
+ORD-1084,2024-05-31,Neha Gupta,Cotton Double Bedspread,Home & Kitchen,North,2,1899.0,3798.0,Debit Card
+ORD-1085,2024-06-02,Meera Sundaram,Ceramic Coffee Mug Set,Home & Kitchen,East,2,799.0,1598.0,UPI
+ORD-1086,2024-06-03,Amit Shah,Noise Cancelling Headphones,Electronics,West,2,4999.0,9998.0,Credit Card
+ORD-1087,2024-06-05,Karthik Raman,Smart Fitness Band,Electronics,East,2,2499.0,4998.0,Credit Card
+ORD-1088,2024-06-07,Aarav Sharma,Ceramic Coffee Mug Set,Home & Kitchen,West,3,799.0,2397.0,Debit Card
+ORD-1089,2024-06-09,Rohan Verma,Stainless Steel Water Bottle,Home & Kitchen,East,5,549.0,2745.0,Net Banking
+ORD-1090,2024-06-11,Deepika Padukone,Wireless Gaming Mouse,Electronics,East,1,1699.0,1699.0,UPI
+ORD-1091,2024-06-12,Aditya Joshi,Mechanical Keyboard,Electronics,Central,3,3200.0,9600.0,UPI
+ORD-1092,2024-06-14,Ananya Iyer,Desk Bookshelf Organizer,Furniture,West,3,1499.0,4497.0,Debit Card
+ORD-1093,2024-06-16,Meera Sundaram,Desk Bookshelf Organizer,Furniture,Central,1,1499.0,1499.0,Net Banking
+ORD-1094,2024-06-18,Varun Kapoor,Ceramic Coffee Mug Set,Home & Kitchen,East,1,799.0,799.0,Net Banking
+ORD-1095,2024-06-20,Aarav Sharma,Wireless Gaming Mouse,Electronics,Central,2,1699.0,3398.0,Debit Card
+ORD-1096,2024-06-21,Meera Sundaram,Ergonomic Office Chair,Furniture,East,5,8500.0,42500.0,Debit Card
+ORD-1097,2024-06-23,Deepika Padukone,Ergonomic Office Chair,Furniture,East,5,8500.0,42500.0,Debit Card
+ORD-1098,2024-06-25,Deepika Padukone,Cotton Double Bedspread,Home & Kitchen,East,4,1899.0,7596.0,Debit Card
+ORD-1099,2024-06-27,Ritu Sen,Mechanical Keyboard,Electronics,South,4,3200.0,12800.0,Net Banking
+ORD-1100,2024-06-29,Deepika Padukone,Mechanical Keyboard,Electronics,Central,5,3200.0,16000.0,Debit Card

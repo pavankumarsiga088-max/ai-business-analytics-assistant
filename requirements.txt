@@ -1,0 +1,9 @@
+pandas
+openpyxl
+duckdb
+plotly
+streamlit
+python-dotenv
+google-genai
+psycopg[binary]>=3.2.0
+pytest>=8.0.0
