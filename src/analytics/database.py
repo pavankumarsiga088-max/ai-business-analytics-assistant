@@ -7,6 +7,7 @@ to construct the appropriate engine without binding the caller to database-speci
 implementations.
 """
 import os
+import re
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, Set, Tuple
 import pandas as pd
@@ -159,12 +160,16 @@ def create_database_engine(
 def get_configured_database_backend() -> str:
     """
     Reads the configured analytical database backend from the DATABASE_BACKEND
-    environment variable. Defaults to 'duckdb' if unset or unrecognized.
+    environment variable or st.secrets. Defaults to 'duckdb' if unset or unrecognized.
     """
-    env_val = os.getenv("DATABASE_BACKEND", "duckdb").strip().lower()
-    if env_val in ("postgres", "postgresql"):
-        return "postgres"
-    return "duckdb"
+    try:
+        from src.config import get_database_backend
+        return get_database_backend()
+    except ImportError:
+        env_val = os.getenv("DATABASE_BACKEND", "duckdb").strip().lower()
+        if env_val in ("postgres", "postgresql"):
+            return "postgres"
+        return "duckdb"
 
 
 def is_backend_available(backend: str) -> Tuple[bool, str]:
@@ -185,6 +190,8 @@ def is_backend_available(backend: str) -> Tuple[bool, str]:
             engine.close()
             return True, ""
         except Exception as e:
-            return False, str(e)
+            # Safely redact password or secret text if present in connection errors
+            clean_err = re.sub(r"password=([^\s]+)", "password=***", str(e), flags=re.IGNORECASE)
+            return False, clean_err
     else:
         return False, f"Unsupported database type: '{backend}'"

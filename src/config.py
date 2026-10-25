@@ -41,12 +41,70 @@ POSTGRES_CONNECT_TIMEOUT: int = int(os.getenv("POSTGRES_CONNECT_TIMEOUT", "10"))
 
 
 # =====================================================================
-# DYNAMIC GETTERS (Allowing runtime environment overrides in tests)
+# SECURE CONFIGURATION & SECRETS RESOLUTION
+# =====================================================================
+
+def get_secret_or_env(key: str, default: Optional[str] = None) -> Optional[str]:
+    """
+    Safely retrieves a configuration setting or secret from environment variables or st.secrets.
+
+    Resolution order:
+      1. os.environ (if present, non-empty, and not a known placeholder string)
+      2. streamlit.secrets (if Streamlit is running and st.secrets contains the key)
+      3. default fallback value
+
+    Gracefully handles environments where Streamlit is not running, secrets.toml does not exist,
+    or st.secrets raises an exception. Never prints or exposes secret values.
+    """
+    # 1. Check OS environment variable
+    env_val = os.getenv(key)
+    if env_val is not None and env_val.strip():
+        val_clean = env_val.strip()
+        val_lower = val_clean.lower()
+        # Avoid treating placeholder values as configured secrets
+        if not ("your_gemini_api_key" in val_lower or "your_postgres_password" in val_lower):
+            return val_clean
+
+    # 2. Check Streamlit secrets (Streamlit Community Cloud or .streamlit/secrets.toml)
+    try:
+        import streamlit as st
+        if hasattr(st, "secrets"):
+            # Check exact key first
+            if key in st.secrets:
+                val = st.secrets[key]
+                if val is not None and str(val).strip():
+                    return str(val).strip()
+            # Also check case-insensitive match (e.g. gemini_api_key)
+            key_lower = key.lower()
+            if key_lower in st.secrets:
+                val = st.secrets[key_lower]
+                if val is not None and str(val).strip():
+                    return str(val).strip()
+    except Exception:
+        # Gracefully handle StreamlitSecretNotFoundError, FileNotFoundError, etc.
+        pass
+
+    return default
+
+
+def get_gemini_api_key() -> Optional[str]:
+    """
+    Safely retrieves the Gemini API key from environment variables or st.secrets.
+    Returns None if unset, empty, or a placeholder. Never logs or prints the key.
+    """
+    key = get_secret_or_env("GEMINI_API_KEY")
+    if not key or not key.strip() or "your_gemini_api_key" in key.lower():
+        return None
+    return key.strip()
+
+
+# =====================================================================
+# DYNAMIC GETTERS (Allowing runtime environment / secrets overrides)
 # =====================================================================
 
 def get_database_backend() -> str:
     """Returns the configured database backend ('duckdb' or 'postgres')."""
-    backend = os.getenv("DATABASE_BACKEND", DEFAULT_DATABASE_BACKEND).strip().lower()
+    backend = (get_secret_or_env("DATABASE_BACKEND", DEFAULT_DATABASE_BACKEND) or "duckdb").strip().lower()
     if backend in ("postgres", "postgresql"):
         return "postgres"
     return "duckdb"
@@ -54,13 +112,15 @@ def get_database_backend() -> str:
 
 def get_gemini_model() -> str:
     """Returns the configured Gemini model identifier."""
-    return os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL).strip()
+    model = get_secret_or_env("GEMINI_MODEL", DEFAULT_GEMINI_MODEL)
+    return (model or DEFAULT_GEMINI_MODEL).strip()
 
 
 def get_max_query_result_rows() -> int:
     """Returns the configured maximum query result rows limit."""
     try:
-        return int(os.getenv("MAX_QUERY_RESULT_ROWS", str(MAX_QUERY_RESULT_ROWS)))
+        val = get_secret_or_env("MAX_QUERY_RESULT_ROWS", str(MAX_QUERY_RESULT_ROWS))
+        return int(val) if val is not None else 10000
     except (ValueError, TypeError):
         return 10000
 
@@ -68,7 +128,8 @@ def get_max_query_result_rows() -> int:
 def get_query_timeout_seconds() -> int:
     """Returns the configured query timeout in seconds."""
     try:
-        return int(os.getenv("QUERY_TIMEOUT_SECONDS", str(QUERY_TIMEOUT_SECONDS)))
+        val = get_secret_or_env("QUERY_TIMEOUT_SECONDS", str(QUERY_TIMEOUT_SECONDS))
+        return int(val) if val is not None else 30
     except (ValueError, TypeError):
         return 30
 
@@ -76,21 +137,16 @@ def get_query_timeout_seconds() -> int:
 def is_gemini_configured() -> bool:
     """
     Returns True if GEMINI_API_KEY is present, non-empty, and not a placeholder.
+    Works seamlessly with both local .env files and Streamlit Community Cloud st.secrets.
     """
-    key = os.getenv("GEMINI_API_KEY")
-    if not key or not key.strip():
-        return False
-    # Check for placeholder strings
-    if "your_gemini_api_key" in key.lower():
-        return False
-    return True
+    return get_gemini_api_key() is not None
 
 
 def is_postgres_configured() -> bool:
     """
-    Returns True if PostgreSQL host and credentials appear configured in environment.
+    Returns True if PostgreSQL host and credentials appear configured in environment or secrets.
     """
-    host = os.getenv("POSTGRES_HOST")
-    db = os.getenv("POSTGRES_DB")
-    user = os.getenv("POSTGRES_USER")
+    host = get_secret_or_env("POSTGRES_HOST")
+    db = get_secret_or_env("POSTGRES_DB")
+    user = get_secret_or_env("POSTGRES_USER")
     return bool(host and db and user)

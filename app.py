@@ -7,6 +7,7 @@ backend (DuckDB engine, NL-to-SQL, Plotly visualization, AI business insights,
 and conversational memory) into a clean, modern, and professional analytics application.
 """
 import os
+import re
 import pandas as pd
 import streamlit as st
 
@@ -88,6 +89,7 @@ from src.analytics.downloads import (
     build_download_filename,
 )
 from src.analytics.sql_explanation import generate_sql_explanation
+from src.analytics.question_suggestions import generate_suggested_questions
 from src.config import (
     get_database_backend,
     get_gemini_model,
@@ -204,10 +206,13 @@ def main():
         st.markdown("**Or test with sample data:**")
         sample_options = ["None", "Clean Dataset (sample_sales.csv)", "Dirty Dataset (sample_dirty_data.xlsx)"]
         selected_sample = st.selectbox("Quick Sample Loader", sample_options)
+        app_dir = os.path.dirname(os.path.abspath(__file__))
         if selected_sample == "Clean Dataset (sample_sales.csv)":
-            sample_choice = "sample_data/sample_sales.csv"
+            candidate = os.path.join(app_dir, "sample_data", "sample_sales.csv")
+            sample_choice = candidate if os.path.exists(candidate) else "sample_data/sample_sales.csv"
         elif selected_sample == "Dirty Dataset (sample_dirty_data.xlsx)":
-            sample_choice = "sample_data/sample_dirty_data.xlsx"
+            candidate = os.path.join(app_dir, "sample_data", "sample_dirty_data.xlsx")
+            sample_choice = candidate if os.path.exists(candidate) else "sample_data/sample_dirty_data.xlsx"
 
     # Determine file source
     df = None
@@ -526,15 +531,26 @@ def main():
     if backend_key == "postgres":
         is_avail, avail_reason = is_backend_available("postgres")
         if not is_avail:
-            st.warning(
-                f"⚠️ PostgreSQL is currently unavailable: {avail_reason}. "
-                "Queries will run on DuckDB until PostgreSQL is reachable. "
-                "Verify POSTGRES_PASSWORD in .env or switch back to DuckDB."
-            )
+            safe_reason = re.sub(r"password=([^\s]+)", "password=***", avail_reason, flags=re.IGNORECASE)
+            warn_col, switch_col = st.columns([3, 1])
+            with warn_col:
+                st.warning(
+                    f"⚠️ **PostgreSQL is currently unreachable or unconfigured:** {safe_reason}. "
+                    "Queries will automatically run on DuckDB (In-Memory). "
+                    "You can configure PostgreSQL connection parameters in Streamlit Secrets or switch back to DuckDB."
+                )
+            with switch_col:
+                if st.button("🔄 Switch to DuckDB", key="btn_switch_to_duckdb", use_container_width=True):
+                    st.session_state["selected_database_backend"] = "DuckDB"
+                    st.session_state["db_backend_selectbox"] = "DuckDB"
+                    st.session_state.pop("last_analytics_result", None)
+                    st.rerun()
             backend_key = "duckdb"
             backend_display_name = "DuckDB (Fallback)"
         else:
-            backend_display_name = "PostgreSQL (localhost:5432)"
+            pg_host = os.getenv("POSTGRES_HOST", "localhost")
+            pg_port = os.getenv("POSTGRES_PORT", "5432")
+            backend_display_name = f"PostgreSQL ({pg_host}:{pg_port})"
     else:
         backend_display_name = "DuckDB (In-Memory)"
 
@@ -545,7 +561,7 @@ def main():
     if not is_gemini_configured():
         st.info(
             "ℹ️ **Gemini API is not configured.** Natural language query generation, SQL explanation, and AI business insights are disabled. "
-            "Add `GEMINI_API_KEY` to your `.env` file to enable AI analytics. (Data Quality features remain fully functional)."
+            "Add `GEMINI_API_KEY` to your Streamlit secrets or `.env` file to enable AI analytics. (Data Quality features remain fully functional)."
         )
 
     # Conversation and Engine status summary
@@ -560,19 +576,27 @@ def main():
         else:
             st.caption(f"💬 **Conversation Status:** `{num_turns}` question{'s' if num_turns != 1 else ''} recorded")
 
-    # Example Questions (Requirement 5)
+    # Suggested Questions (Dataset-Aware, Deterministic)
     st.markdown("**Suggested Questions:**")
-    example_questions = [
-        "What is the total revenue?",
-        "Which region sells the most?",
-        "Top 5 products",
-        "Average order value",
-    ]
-    example_cols = st.columns(len(example_questions))
-    for i, ex_q in enumerate(example_questions):
-        if example_cols[i].button(ex_q, key=f"ex_btn_{i}", use_container_width=True):
-            st.session_state["user_nl_question"] = ex_q
-            st.rerun()
+    suggested_questions = generate_suggested_questions(schema=df)
+    if len(suggested_questions) <= 4:
+        example_cols = st.columns(len(suggested_questions))
+        for i, ex_q in enumerate(suggested_questions):
+            if example_cols[i].button(ex_q, key=f"ex_btn_{i}", use_container_width=True):
+                st.session_state["user_nl_question"] = ex_q
+                st.rerun()
+    else:
+        row1_cols = st.columns(3)
+        for i, ex_q in enumerate(suggested_questions[:3]):
+            if row1_cols[i].button(ex_q, key=f"ex_btn_{i}", use_container_width=True):
+                st.session_state["user_nl_question"] = ex_q
+                st.rerun()
+        row2_cols = st.columns(len(suggested_questions) - 3)
+        for j, ex_q in enumerate(suggested_questions[3:]):
+            idx = 3 + j
+            if row2_cols[j].button(ex_q, key=f"ex_btn_{idx}", use_container_width=True):
+                st.session_state["user_nl_question"] = ex_q
+                st.rerun()
 
     # Follow-up Suggestions if conversation turns exist
     if not conv_history.is_empty():
@@ -608,7 +632,7 @@ def main():
         if not is_gemini_configured():
             st.error(
                 "Cannot analyze question: Gemini API key is not configured. "
-                "Please set GEMINI_API_KEY in your environment or .env file to enable natural language query generation."
+                "Please set GEMINI_API_KEY in Streamlit Secrets or your .env file to enable natural language query generation."
             )
         else:
             cleaned_question = user_question.strip() if user_question else ""
@@ -705,7 +729,7 @@ def main():
                 except LLMAuthenticationError:
                     st.error("AI service authentication failed. Please check the Gemini API configuration.")
                 except LLMServiceUnavailableError:
-                    st.error("AI service is temporarily unavailable. Please try again.")
+                    st.error("Gemini is temporarily busy. Please try again in a few moments.")
                 except QuestionInterpretationError:
                     st.error("I couldn't understand that business question. Try asking about revenue, sales, products, regions, orders, or dates.")
                 except LLMGenerationError as e:
@@ -715,7 +739,7 @@ def main():
                     elif "api key" in err_lower or "api_key" in err_lower or "auth" in err_lower or "401" in err_lower or "403" in err_lower or "not configured" in err_lower:
                         st.error("AI service authentication failed. Please check the Gemini API configuration.")
                     elif "unavailable" in err_lower or "timeout" in err_lower or "timed out" in err_lower or "503" in err_lower or "502" in err_lower or "504" in err_lower or "connection" in err_lower or "network" in err_lower:
-                        st.error("AI service is temporarily unavailable. Please try again.")
+                        st.error("Gemini is temporarily busy. Please try again in a few moments.")
                     else:
                         st.error("I couldn't understand that business question. Try asking about revenue, sales, products, regions, orders, or dates.")
                 except DisallowedQueryError:
@@ -723,7 +747,7 @@ def main():
                 except QueryExecutionError:
                     st.error(f"The generated query could not be executed against the current dataset ({backend_display_name}). Please try a simpler analytical question.")
                 except PostgresConnectionError:
-                    st.error("Unable to connect to PostgreSQL. Please check that PostgreSQL is running and configured correctly in your .env file, or switch to DuckDB.")
+                    st.error("Unable to connect to PostgreSQL. Please check that PostgreSQL is running and configured correctly in your Streamlit secrets or .env file, or switch to DuckDB.")
                 except Exception:
                     st.error("An unexpected error occurred while processing your request. Please check your question or try again.")
 

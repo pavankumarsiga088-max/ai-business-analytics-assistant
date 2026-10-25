@@ -40,7 +40,10 @@ This platform provides a unified, two-pillar solution:
 - **Gemini 3.6 Flash NL-to-SQL**: Generates accurate analytical SQL grounded strictly in introspected database schemas.
 - **Deterministic Read-Only SQL Validation Gate**: Strictly restricts execution to read-only queries (`SELECT`, `WITH`, `EXPLAIN`) and blocks all mutating DDL/DML verbs and stacked injections.
 - **Transparent Analytics Presentation**: Auto-classifies queries into single/multi-metric KPI cards, interactive Plotly visualizations, and tabular views.
-- **Plain-English Query Explanation**: Translates SQL joins, groupings, and filters into accessible business summaries.
+- **Deterministic Plain-English Query Explanation**: Translates SQL aggregations, groupings, filters, joins, and limits into accessible business summaries locally without consuming Gemini API quota.
+- **Dataset-Aware Question Suggestions**: Automatically generates 4–6 domain-relevant questions from introspected column semantics (e.g., agriculture, e-commerce) without external LLM calls.
+- **Transient 503 Retry Resilience**: Implements short exponential backoff retries (at most 2 additional attempts) exclusively for transient 503 / Service Unavailable errors, while failing fast on 429 quota exhaustion and authentication errors.
+- **Bounded Privacy-Preserving GenAI Pipeline**: The full uploaded dataset is NEVER sent to Gemini; Gemini only receives introspected schemas for SQL generation and bounded result rows (capped at 25 rows) for business insights.
 - **Multi-Turn Conversational Memory**: Resolves pronouns and follow-up queries using rolling context with strict dataset isolation.
 - **Multi-Format Downloads**: One-click exports for CSV, Excel (.xlsx), and interactive Plotly HTML figures.
 
@@ -76,9 +79,25 @@ This platform provides a unified, two-pillar solution:
                                                               │ Standardized pd.DataFrame
                                                               ▼
                                                 ┌───────────────────────────┐
-                                                │   Gemini NL-to-SQL Engine │
-                                                │ - Context-Aware Prompt    │
-                                                │ - Read-Only SQL Validation Gate │
+                                                │  Gemini #1: NL-to-SQL     │
+                                                │ (Receives schema & intent)│
+                                                │ - Safe 503 Retry Logic    │
+                                                │ - Read-Only SQL Gate      │
+                                                └─────────────┬─────────────┘
+                                                              │ Validated Read-Only SQL
+                                                              ▼
+                                                ┌───────────────────────────┐
+                                                │ Database Query Execution  │
+                                                │ (DuckDB or PostgreSQL)    │
+                                                └─────────────┬─────────────┘
+                                                              │ Result DataFrame
+                                                              ▼
+                                                ┌───────────────────────────┐
+                                                │ Deterministic SQL Explain │
+                                                │ (100% Local / Zero Quota) │
+                                                │             +             │
+                                                │ Gemini #2: Insights       │
+                                                │ (Bounded Query Result DF) │
                                                 └─────────────┬─────────────┘
                                                               │
                                                               ▼
@@ -88,6 +107,7 @@ This platform provides a unified, two-pillar solution:
                                                 │ - Plotly Visualizations   │
                                                 │ - Plain-English SQL Logic │
                                                 │ - AI Business Insights    │
+                                                │ - Dataset-Aware Prompts   │
                                                 │ - Multi-Turn History      │
                                                 │ - Data & Chart Downloads  │
                                                 └───────────────────────────┘
@@ -101,11 +121,13 @@ This platform provides a unified, two-pillar solution:
 | **Frontend UI** | Streamlit 1.40+ | Interactive web interface, session state, metric cards |
 | **In-Memory SQL** | DuckDB 1.0+ | Fast, columnar execution over in-memory DataFrames |
 | **Relational SQL** | PostgreSQL 18.6+ | Relational enterprise database via `psycopg` (v3) |
-| **Generative AI** | Google GenAI SDK (`google-genai`) | Gemini 3.6 Flash for NL-to-SQL, insights, and explanations |
+| **Generative AI** | Google GenAI SDK (`google-genai`) | Gemini 3.6 Flash for NL-to-SQL and Business Insights (with 503 exponential retry) |
+| **SQL Explanation** | Local Deterministic Parser | Zero-quota human-readable query explanation from SQL clauses |
+| **Suggestions** | Semantic Schema Matcher | 100% local, dataset-aware natural language question generation |
 | **Data Processing** | Pandas, OpenPyXL | Ingestion, data profiling, type mapping, Excel export |
 | **Visualizations** | Plotly Express | Dynamic bar, line, and grouped visualizations |
 | **Configuration** | Python-Dotenv | Environment-based non-secret configuration |
-| **Testing** | Pytest | 301 automated unit, integration, and security tests |
+| **Testing** | Pytest | 330 automated unit, integration, and security tests |
 
 ---
 

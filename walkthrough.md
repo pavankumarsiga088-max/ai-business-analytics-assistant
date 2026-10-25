@@ -1103,3 +1103,82 @@ Exception handling in `src/analytics/nl_to_sql.py` and `app.py` now maps failure
 - **Streamlit App Module**: Clean import without errors.
 - **Streamlit Health Check**: `200 OK` on `http://localhost:8501/_stcore/health`.
 - **Live Gemini Test (`test_gemini_integration.py`)**: Accurately caught and classified HTTP 429 quota exhaustion as `LLMQuotaExceededError` without raw secret leakage.
+
+---
+
+## Final Targeted Optimization Pass: API Efficiency, Resilience & Dataset-Aware UX
+
+### 1. Architectural Overview & Gemini Call Reduction
+Previously, each user query triggered up to 3 separate Gemini API calls:
+1. Gemini NL → SQL
+2. Gemini SQL explanation
+3. Gemini business insights
+
+This caused rapid quota consumption and frequent HTTP 429 / 503 errors.
+
+The pipeline was refactored into the optimized architecture:
+```
+User Question
+      ↓
+Gemini #1: Natural Language → SQL
+      ↓
+Read-only SQL validation (AST & Keyword gate)
+      ↓
+DuckDB / PostgreSQL Execution
+      ↓
+Result DataFrame
+      ↓
+Deterministic SQL Explanation (100% Local / 0 Gemini calls)
+      +
+Gemini #2: Business Insights (bounded query result DF only)
+      ↓
+Streamlit UI
+```
+**Outcome**: Reduced Gemini calls from 3 to 2 per question (a 33% reduction in API calls and quota consumption), while producing instant, deterministic SQL explanations.
+
+### 2. Deterministic SQL Explanation Engine (`src/analytics/sql_explanation.py`)
+- **Local AST/Regex Analysis**: Parses clauses directly from the validated SQL query: `SELECT`, `FROM`, `JOIN`, `WHERE`, `GROUP BY`, `ORDER BY`, `LIMIT`.
+- **Aggregations Explained**: Accurately translates `SUM`, `AVG`, `COUNT`, `MIN`, `MAX` into plain-English operations.
+- **Zero Hallucination & Zero Execution**: Never executes SQL against DuckDB or PostgreSQL, and never invents filters, joins, or causality.
+- **Structured Markdown Output**:
+  - `### What the query does`: Concise executive summary sentence.
+  - `### How it works`: Grounded bullet points detailing table source, join conditions, WHERE filters, groupings, sort orders, and row limits.
+
+### 3. Safe 503 Exponential Backoff & 429 Fast Failure (`src/analytics/nl_to_sql.py`)
+- **Transient 503 Retries**: Implemented `_invoke_with_transient_retry` with exponential backoff exclusively for transient Gemini 503 / Service Unavailable errors:
+  - Attempt 1: wait 1.0 second
+  - Attempt 2: wait 2.0 seconds
+  - Attempt 3: stop and raise `LLMServiceUnavailableError`
+- **Fast Failure for Non-Transient Errors**:
+  - **HTTP 429 Quota Exhaustion**: Never retried; immediately raises `LLMQuotaExceededError` with friendly UI message: *"AI service quota reached. Please try again later."*
+  - **HTTP 401 / 403 Authentication**: Never retried; immediately raises `LLMAuthenticationError` with friendly UI message: *"AI service authentication failed. Please check the Gemini API configuration."*
+  - **Exhausted 503 Message**: UI presents: *"Gemini is temporarily busy. Please try again in a few moments."*
+- **Leakage Prevention**: Raw API keys, stack traces, and internal endpoints are never exposed to the UI user.
+
+### 4. Dataset-Aware Question Suggestion Engine (`src/analytics/question_suggestions.py`)
+- **Zero LLM Calls**: Operates 100% locally and deterministically by inspecting dataset column semantics and types.
+- **Domain Adaptive**:
+  - **Agriculture Datasets**: Detects columns like `Crop`, `State`, `Season`, `Irrigation_Method`, `Water_Used`, `Yield`, `Disease_Risk`, `Profit` and suggests domain questions:
+    1. *What is the total revenue?*
+    2. *Which crop generates the highest profit?*
+    3. *Which state has the highest revenue?*
+    4. *Which crop has the highest disease and pest risk?*
+    5. *Which irrigation method uses the least water?*
+    6. *Which season is the most profitable?*
+  - **E-Commerce / Sales Datasets**: Detects `order_id`, `product`, `region`, `customer_name`, `revenue` and suggests product rankings, regional revenue, and AOV.
+  - **Unknown Datasets**: Gracefully falls back to generic exploratory queries without errors.
+- **Read-Only**: Zero mutation of input DataFrames or schemas.
+
+### 5. Data Privacy & Bounded Context Verification
+- The full raw uploaded dataset is **never** sent to Gemini.
+- Gemini Call #1 (NL-to-SQL) receives only table schema definitions, the user's question, and up to 3 recent turns (capped at 5 sample rows per turn).
+- Gemini Call #2 (Business Insights) receives only the computed result DataFrame (capped at `max_rows=25`).
+- Read-only SQL validation gate enforces strict SELECT/WITH queries and blocks all DDL/DML.
+
+### 6. Full Regression & Smoke Verification
+- **Pytest Suite**: **330/330 passed (100%)** with 15 subtests passed in 22.69s.
+  - Added `test_question_suggestions.py` (10 tests).
+  - Added `test_gemini_retry.py` (9 tests).
+  - Updated `test_sql_explanation.py` (25 tests).
+- **System Verification (`verify_final_project.py`)**: All 16 subsystems passed successfully.
+- **Streamlit Health Check**: `app.py` imports cleanly with `main()` defined.

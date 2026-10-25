@@ -10,6 +10,7 @@ DESIGN PRINCIPLES:
 """
 import os
 import re
+import time
 from typing import Dict, Any, Optional, Union, List, Callable
 
 try:
@@ -366,12 +367,14 @@ def get_gemini_client(api_key: Optional[str] = None) -> Any:
     Initializes and returns an official Google GenAI Client instance.
 
     Reads the API key strictly from GEMINI_API_KEY (or explicit api_key parameter).
+    Supports environment variables and Streamlit Community Cloud st.secrets.
     Never hard-codes, logs, or prints the secret key.
 
     Raises:
         LLMAuthenticationError: If GEMINI_API_KEY is not configured or client init fails.
     """
-    effective_key = api_key if api_key is not None else os.getenv("GEMINI_API_KEY")
+    from src.config import get_gemini_api_key
+    effective_key = api_key if api_key is not None else get_gemini_api_key()
     if not effective_key or not effective_key.strip():
         raise LLMAuthenticationError("GEMINI_API_KEY is not configured.")
 
@@ -380,6 +383,7 @@ def get_gemini_client(api_key: Optional[str] = None) -> Any:
         return genai.Client(api_key=effective_key.strip())
     except Exception as e:
         raise LLMAuthenticationError(f"Failed to initialize Gemini client: {str(e)}") from e
+
 
 
 def _classify_and_raise_gemini_error(exc: Exception) -> None:
@@ -425,20 +429,108 @@ def _classify_and_raise_gemini_error(exc: Exception) -> None:
     raise LLMGenerationError(f"Gemini API request failed: {err_str}") from exc
 
 
+def _is_transient_service_error(exc: Exception) -> bool:
+    """
+    Identifies transient 503 / Service Unavailable errors eligible for retry.
+    Explicitly returns False for 429 (quota), 401/403 (auth), and other permanent errors.
+    """
+    err_str = str(exc)
+    err_lower = err_str.lower()
+
+    # 1. Never retry 429 quota / rate limit errors
+    if "429" in err_str or "resource_exhausted" in err_lower or "quota" in err_lower or "rate limit" in err_lower:
+        return False
+
+    # 2. Never retry 401 / 403 authentication or missing / invalid API key errors
+    if (
+        "401" in err_str
+        or "403" in err_str
+        or "unauthenticated" in err_lower
+        or "permission_denied" in err_lower
+        or "api key" in err_lower
+        or "api_key" in err_lower
+        or "not configured" in err_lower
+        or "invalid api key" in err_lower
+    ):
+        return False
+
+    # 3. Never retry 404 (model missing)
+    if "404" in err_str:
+        return False
+
+    # 4. Strictly retry 503 / service unavailable / timeout / network dropped
+    return (
+        "503" in err_str
+        or "502" in err_str
+        or "504" in err_str
+        or "unavailable" in err_lower
+        or "timeout" in err_lower
+        or "timed out" in err_lower
+        or "connection" in err_lower
+        or "deadline" in err_lower
+        or "network" in err_lower
+        or isinstance(exc, LLMServiceUnavailableError)
+    )
+
+
+def _invoke_with_transient_retry(
+    fn: Callable[[], str],
+    sleep_fn: Optional[Callable[[float], None]] = None,
+    max_retries: int = 2,
+    delays: Optional[List[float]] = None,
+) -> str:
+    """
+    Executes a callable with safe exponential backoff retries ONLY for transient
+    503 / Service Unavailable errors.
+
+    Retry schedule:
+    - Attempt 1 -> if 503, wait ~1s
+    - Attempt 2 -> if 503, wait ~2s
+    - Attempt 3 -> if 503, stop and raise LLMServiceUnavailableError
+
+    Non-transient errors (429 Quota, 401/403 Auth, etc.) are NEVER retried.
+    """
+    _sleep = sleep_fn if sleep_fn is not None else time.sleep
+    delays = delays or [1.0, 2.0]
+    last_err: Optional[Exception] = None
+
+    for attempt in range(max_retries + 1):
+        try:
+            return fn()
+        except Exception as e:
+            last_err = e
+            if _is_transient_service_error(e):
+                if attempt < max_retries:
+                    delay = delays[attempt] if attempt < len(delays) else delays[-1]
+                    _sleep(delay)
+                    continue
+                else:
+                    _classify_and_raise_gemini_error(last_err)
+            else:
+                _classify_and_raise_gemini_error(last_err)
+
+    if last_err:
+        _classify_and_raise_gemini_error(last_err)
+    raise LLMGenerationError("Execution failed after retries.")
+
+
 def _call_gemini_sdk(
     prompt: str,
     client: Optional[Any] = None,
     api_key: Optional[str] = None,
-    model: str = "gemini-3.6-flash",
+    model: Optional[str] = None,
+    sleep_fn: Optional[Callable[[float], None]] = None,
 ) -> str:
     """
-    Invokes the Google Gemini API using the official google-genai SDK.
+    Invokes the Google Gemini API using the official google-genai SDK
+    with safe exponential backoff retries for transient 503 errors.
 
     Parameters:
         prompt: Formatted prompt instructing Gemini to produce pure SQL.
         client: Optional pre-initialized genai.Client instance.
         api_key: Optional API key override. If not provided, reads from GEMINI_API_KEY.
-        model: Gemini model identifier (default: "gemini-3.6-flash").
+        model: Gemini model identifier (default: dynamically resolved from config / secrets).
+        sleep_fn: Optional sleep function override (for testing without delays).
 
     Returns:
         str: Raw text generated by Gemini.
@@ -446,37 +538,41 @@ def _call_gemini_sdk(
     Raises:
         LLMQuotaExceededError: When rate-limited or quota exceeded (429).
         LLMAuthenticationError: When API key is invalid or unauthorized.
-        LLMServiceUnavailableError: When network or service is unavailable.
+        LLMServiceUnavailableError: When network or service is unavailable after retries.
         QuestionInterpretationError: If Gemini returns an empty or uninterpretable response.
         LLMGenerationError: General API failure.
     """
+    from src.config import get_gemini_model
+    effective_model = model or get_gemini_model()
     active_client = client or get_gemini_client(api_key=api_key)
+    current_model = [effective_model]
 
-    try:
-        response = active_client.models.generate_content(
-            model=model,
-            contents=prompt,
-        )
-    except Exception as e:
-        err_msg = str(e)
-        err_lower = err_msg.lower()
-        # Automatic fallback if the requested model is deprecated/unavailable for new accounts
-        if "404" in err_msg and ("not available" in err_lower or "gemini-3.6-flash" in err_lower or "gemini-2.5-flash" in err_lower):
-            fallback_model = "gemini-2.5-flash" if model == "gemini-3.6-flash" else "gemini-3.6-flash"
-            try:
+    def _execute_attempt() -> str:
+        try:
+            response = active_client.models.generate_content(
+                model=current_model[0],
+                contents=prompt,
+            )
+        except Exception as e:
+            err_msg = str(e)
+            err_lower = err_msg.lower()
+            # Automatic fallback if the requested model is deprecated/unavailable for new accounts (404)
+            if "404" in err_msg and ("not available" in err_lower or "gemini-3.6-flash" in err_lower or "gemini-2.5-flash" in err_lower):
+                fallback_model = "gemini-2.5-flash" if current_model[0] == "gemini-3.6-flash" else "gemini-3.6-flash"
+                current_model[0] = fallback_model
                 response = active_client.models.generate_content(
                     model=fallback_model,
                     contents=prompt,
                 )
-            except Exception as retry_err:
-                _classify_and_raise_gemini_error(retry_err)
-        else:
-            _classify_and_raise_gemini_error(e)
+            else:
+                raise e
 
-    if not response or not hasattr(response, "text") or not response.text or not response.text.strip():
-        raise QuestionInterpretationError("Gemini API returned an empty response.")
+        if not response or not hasattr(response, "text") or not response.text or not response.text.strip():
+            raise QuestionInterpretationError("Gemini API returned an empty response.")
 
-    return response.text
+        return response.text
+
+    return _invoke_with_transient_retry(_execute_attempt, sleep_fn=sleep_fn)
 
 
 # =====================================================================
@@ -488,9 +584,10 @@ def generate_sql(
     schema: Optional[Union[Dict[str, Any], str]] = None,
     llm_client: Optional[Any] = None,
     api_key: Optional[str] = None,
-    model: str = "gemini-3.6-flash",
+    model: Optional[str] = None,
     conversation_context: Optional[Any] = None,
     recent_turn_limit: int = 3,
+    sleep_fn: Optional[Callable[[float], None]] = None,
 ) -> str:
     """
     Translates a natural language business question into a DuckDB SQL query.
@@ -506,9 +603,10 @@ def generate_sql(
         schema: Optional schema definition (Dict, string, or None for default sales table).
         llm_client: Optional custom LLM client or callable (useful for dependency injection / mocking).
         api_key: Optional API key override. If not provided, resolves strictly from GEMINI_API_KEY.
-        model: Model name to use when invoking the Gemini API (default: "gemini-3.6-flash").
+        model: Model name to use when invoking the Gemini API (default: dynamically resolved from config / secrets).
         conversation_context: Optional ConversationHistory or list of ConversationTurn objects.
         recent_turn_limit: Number of recent turns to include in the context (default: 3).
+        sleep_fn: Optional sleep function override (for testing without delays).
 
     Returns:
         str: Cleaned, pure SQL query string without markdown fences.
@@ -525,6 +623,9 @@ def generate_sql(
     if question is None or not isinstance(question, str) or not question.strip():
         raise EmptyQuestionError("Question cannot be empty or contain only whitespace.")
 
+    from src.config import get_gemini_model
+    effective_model = model or get_gemini_model()
+
     # 2. Build structured prompt
     prompt = build_sql_prompt(
         question=question,
@@ -537,36 +638,40 @@ def generate_sql(
     raw_response: str = ""
 
     if llm_client is not None:
-        try:
+        def _invoke_client() -> str:
             if callable(llm_client):
-                raw_response = llm_client(prompt)
+                return llm_client(prompt)
             elif hasattr(llm_client, "generate_sql"):
-                raw_response = llm_client.generate_sql(prompt)
+                return llm_client.generate_sql(prompt)
             elif hasattr(llm_client, "models") and hasattr(llm_client.models, "generate_content"):
-                res = llm_client.models.generate_content(model=model, contents=prompt)
-                raw_response = getattr(res, "text", str(res))
+                res = llm_client.models.generate_content(model=effective_model, contents=prompt)
+                return getattr(res, "text", str(res))
             elif hasattr(llm_client, "generate_content"):
                 res = llm_client.generate_content(prompt)
-                raw_response = getattr(res, "text", str(res))
+                return getattr(res, "text", str(res))
             elif hasattr(llm_client, "generate"):
-                raw_response = llm_client.generate(prompt)
+                return llm_client.generate(prompt)
             elif hasattr(llm_client, "chat"):
-                raw_response = llm_client.chat(prompt)
+                return llm_client.chat(prompt)
             else:
                 raise LLMGenerationError(
                     f"Provided llm_client '{type(llm_client).__name__}' does not provide a callable "
                     f"interface or supported methods (generate_sql, generate_content, generate, chat)."
                 )
+
+        try:
+            raw_response = _invoke_with_transient_retry(_invoke_client, sleep_fn=sleep_fn)
         except Exception as e:
             if isinstance(e, NLToSQLError):
                 raise
             raise LLMGenerationError(f"LLM client execution failed: {str(e)}") from e
     else:
-        # Call official Gemini SDK
+        # Call official Gemini SDK with transient retry
         raw_response = _call_gemini_sdk(
             prompt=prompt,
             api_key=api_key,
-            model=model,
+            model=effective_model,
+            sleep_fn=sleep_fn,
         )
 
     # 4. Clean and normalize the generated SQL

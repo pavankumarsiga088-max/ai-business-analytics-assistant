@@ -93,6 +93,20 @@ class TestConfigManagement(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             self.assertFalse(is_postgres_configured())
 
+    def test_streamlit_secrets_fallback(self):
+        import streamlit as st
+        mock_secrets = {
+            "GEMINI_API_KEY": "AIzaSySecretStreamlitCloudKey",
+            "GEMINI_MODEL": "gemini-2.5-flash",
+            "DATABASE_BACKEND": "postgres",
+        }
+        with patch.dict(os.environ, {}, clear=True):
+            with patch.object(st, "secrets", mock_secrets, create=True):
+                self.assertTrue(is_gemini_configured())
+                self.assertEqual(get_gemini_model(), "gemini-2.5-flash")
+                self.assertEqual(get_database_backend(), "postgres")
+
+
 
 class TestSecurityHardening(unittest.TestCase):
     """Verifies security controls, read-only SQL gates, and password redaction."""

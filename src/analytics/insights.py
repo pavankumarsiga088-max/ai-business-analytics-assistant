@@ -14,7 +14,7 @@ DESIGN & ARCHITECTURAL PRINCIPLES:
 from typing import Any, Dict, List, Optional, Union
 import pandas as pd
 
-from src.analytics.nl_to_sql import _call_gemini_sdk, LLMGenerationError
+from src.analytics.nl_to_sql import _call_gemini_sdk, _invoke_with_transient_retry, LLMGenerationError
 
 
 # =====================================================================
@@ -129,8 +129,9 @@ def generate_business_insights(
     sql: Optional[str] = None,
     llm_client: Optional[Any] = None,
     api_key: Optional[str] = None,
-    model: str = "gemini-2.5-flash",
+    model: Optional[str] = None,
     max_rows: int = 25,
+    sleep_fn: Optional[Any] = None,
 ) -> str:
     """
     Generates concise, evidence-based business insights from pre-computed SQL results.
@@ -141,8 +142,9 @@ def generate_business_insights(
         sql: Optional executed SQL query string for additional context.
         llm_client: Optional custom LLM client or callable (for mocking/dependency injection).
         api_key: Optional Gemini API key override. If None, resolves from GEMINI_API_KEY.
-        model: Gemini model identifier (default: "gemini-2.5-flash").
+        model: Gemini model identifier (default: dynamically resolved from config / secrets).
         max_rows: Maximum number of rows to include in the LLM prompt.
+        sleep_fn: Optional sleep function override (for testing without delays).
 
     Returns:
         str: Concise business insights formatted as Markdown bullet points.
@@ -160,6 +162,9 @@ def generate_business_insights(
     if question is None or not isinstance(question, str) or not question.strip():
         raise InsightsError("Question cannot be empty or contain only whitespace.")
 
+    from src.config import get_gemini_model
+    effective_model = model or get_gemini_model()
+
     # 3. Build structured prompt (guarantees immutability of result_df)
     prompt = build_insights_prompt(
         question=question,
@@ -172,26 +177,29 @@ def generate_business_insights(
     raw_response: str = ""
 
     if llm_client is not None:
-        try:
+        def _invoke_client() -> str:
             if callable(llm_client):
-                raw_response = llm_client(prompt)
+                return llm_client(prompt)
             elif hasattr(llm_client, "generate_insights"):
-                raw_response = llm_client.generate_insights(prompt)
+                return llm_client.generate_insights(prompt)
             elif hasattr(llm_client, "models") and hasattr(llm_client.models, "generate_content"):
-                res = llm_client.models.generate_content(model=model, contents=prompt)
-                raw_response = getattr(res, "text", str(res))
+                res = llm_client.models.generate_content(model=effective_model, contents=prompt)
+                return getattr(res, "text", str(res))
             elif hasattr(llm_client, "generate_content"):
                 res = llm_client.generate_content(prompt)
-                raw_response = getattr(res, "text", str(res))
+                return getattr(res, "text", str(res))
             elif hasattr(llm_client, "generate"):
-                raw_response = llm_client.generate(prompt)
+                return llm_client.generate(prompt)
             elif hasattr(llm_client, "chat"):
-                raw_response = llm_client.chat(prompt)
+                return llm_client.chat(prompt)
             else:
                 raise LLMInsightGenerationError(
                     f"Provided llm_client '{type(llm_client).__name__}' does not provide a callable "
                     f"interface or supported methods (generate_insights, generate_content, generate, chat)."
                 )
+
+        try:
+            raw_response = _invoke_with_transient_retry(_invoke_client, sleep_fn=sleep_fn)
         except Exception as e:
             if isinstance(e, InsightsError):
                 raise
@@ -201,7 +209,8 @@ def generate_business_insights(
             raw_response = _call_gemini_sdk(
                 prompt=prompt,
                 api_key=api_key,
-                model=model,
+                model=effective_model,
+                sleep_fn=sleep_fn,
             )
         except LLMGenerationError as e:
             raise LLMInsightGenerationError(f"Gemini insight generation failed: {str(e)}") from e

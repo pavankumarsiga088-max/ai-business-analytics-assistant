@@ -242,25 +242,36 @@ class PostgresEngine(AnalyticsDatabase):
             query_timeout: Query execution timeout in seconds (default: from QUERY_TIMEOUT_SECONDS or 30).
             autocommit: Whether to enable autocommit on the connection (default: True).
         """
-        self._host = str(host or os.getenv("POSTGRES_HOST", "localhost")).strip()
-        port_raw = port or os.getenv("POSTGRES_PORT", "5432")
+        try:
+            from src.config import get_secret_or_env
+            self._host = str(host or get_secret_or_env("POSTGRES_HOST", "localhost")).strip()
+            port_raw = port or get_secret_or_env("POSTGRES_PORT", "5432")
+            self._database = str(database or get_secret_or_env("POSTGRES_DB", "postgres")).strip()
+            self._user = str(user or get_secret_or_env("POSTGRES_USER", "postgres")).strip()
+            if password is not None:
+                self._password = str(password)
+            else:
+                self._password = get_secret_or_env("POSTGRES_PASSWORD", "") or ""
+            query_timeout_raw = query_timeout if query_timeout is not None else get_secret_or_env("QUERY_TIMEOUT_SECONDS", "30")
+        except ImportError:
+            self._host = str(host or os.getenv("POSTGRES_HOST", "localhost")).strip()
+            port_raw = port or os.getenv("POSTGRES_PORT", "5432")
+            self._database = str(database or os.getenv("POSTGRES_DB", "postgres")).strip()
+            self._user = str(user or os.getenv("POSTGRES_USER", "postgres")).strip()
+            if password is not None:
+                self._password = str(password)
+            else:
+                self._password = os.getenv("POSTGRES_PASSWORD", "")
+            query_timeout_raw = query_timeout if query_timeout is not None else os.getenv("QUERY_TIMEOUT_SECONDS", "30")
+
         try:
             self._port = int(str(port_raw).strip())
         except (ValueError, TypeError):
             self._port = 5432
 
-        self._database = str(database or os.getenv("POSTGRES_DB", "postgres")).strip()
-        self._user = str(user or os.getenv("POSTGRES_USER", "postgres")).strip()
-
-        if password is not None:
-            self._password = str(password)
-        else:
-            self._password = os.getenv("POSTGRES_PASSWORD", "")
-
         self._autocommit = autocommit
         self._connect_timeout = connect_timeout
 
-        query_timeout_raw = query_timeout if query_timeout is not None else os.getenv("QUERY_TIMEOUT_SECONDS", "30")
         try:
             self._query_timeout: int = int(str(query_timeout_raw).strip())
         except (ValueError, TypeError):

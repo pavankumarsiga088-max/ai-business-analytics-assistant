@@ -87,6 +87,9 @@ from src.analytics.sql_explanation import (
     EmptySQLExplanationError,
     LLMExplanationGenerationError,
 )
+from src.analytics.question_suggestions import (
+    generate_suggested_questions,
+)
 
 __all__ = [
     "AnalyticsDatabase",
@@ -153,6 +156,7 @@ __all__ = [
     "SQLExplanationError",
     "EmptySQLExplanationError",
     "LLMExplanationGenerationError",
+    "generate_suggested_questions",
 ]
 
 
